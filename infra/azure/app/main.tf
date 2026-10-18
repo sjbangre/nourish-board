@@ -195,6 +195,7 @@ output "application_name" { value = azurerm_container_app.app.name }
 output "sql_server" { value = azurerm_mssql_server.app.fully_qualified_domain_name }
 output "database_name" { value = azapi_resource.database.name }
 output "runtime_principal_id" { value = azurerm_user_assigned_identity.app.principal_id }
+output "runtime_client_id" { value = azurerm_user_assigned_identity.app.client_id }
 output "registry_name" { value = var.enable_registry ? azurerm_container_registry.app[0].name : null }
 
 resource "azurerm_role_assignment" "image_push" {

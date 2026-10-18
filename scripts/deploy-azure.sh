@@ -15,7 +15,7 @@ vault=$(terraform output -raw vault_name)
 server=$(terraform output -raw sql_server_name)
 export SQL_SERVER=$(terraform output -raw sql_server)
 export SQL_DATABASE=$(terraform output -raw database_name)
-export SQL_RUNTIME_PRINCIPAL_ID=$(terraform output -raw runtime_principal_id)
+export SQL_RUNTIME_CLIENT_ID=$(terraform output -raw runtime_client_id)
 export DATABASE_PROVIDER=azure-sql SQL_AUTH=azure-cli DATABASE_MIGRATIONS=on
 # Cache the SQL token while GitHub's newly issued federation assertion is fresh.
 # AzureCliCredential uses this cached token after the image build completes.
@@ -39,9 +39,13 @@ printf '%s' "$GOOGLE_CLIENT_SECRET" > "$secret_dir/client-secret"
 retry az keyvault secret set --vault-name "$vault" --name google-client-id --file "$secret_dir/client-id" --output none
 retry az keyvault secret set --vault-name "$vault" --name google-client-secret --file "$secret_dir/client-secret" --output none
 retry az acr login --name "$registry" --output none
-image="$registry_server/nourish-board:$GITHUB_SHA"
-docker build -t "$image" ../../..
-docker push "$image"
+if [[ "${BUILD_IMAGE:-true}" == true ]]; then
+  image="$registry_server/nourish-board:$GITHUB_SHA"
+  docker build -t "$image" ../../..
+  docker push "$image"
+else
+  image="${TF_VAR_application_image:?An existing application image is required when skipping the build.}"
+fi
 # Hosted runners use changing addresses; this rule exists only during migration.
 runner_ip=$(curl --fail --silent --show-error --retry 3 https://api.ipify.org)
 [[ "$runner_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo 'Invalid runner IPv4 address'; exit 1; }
@@ -56,5 +60,17 @@ export TF_VAR_application_image="$image"
 terraform plan -lock-timeout=5m -out=application.tfplan
 terraform apply -lock-timeout=5m application.tfplan
 url=$(terraform output -raw application_url)
+# A successful resource update can precede revision readiness. Never report
+# deployment success while Azure is still serving its bootstrap placeholder.
+APP_HEALTH_URL="$url/api/health" node --input-type=module <<'JS'
+for (let attempt = 0; attempt < 30; attempt++) {
+  try {
+    const response = await fetch(process.env.APP_HEALTH_URL, { signal: AbortSignal.timeout(15000) });
+    if (response.ok && (await response.json()).status === 'ok') process.exit(0);
+  } catch { /* activation or an earlier revision is still serving traffic */ }
+  await new Promise(resolve => setTimeout(resolve, 10000));
+}
+throw new Error('Application did not become healthy; inspect the Container App revision logs.');
+JS
 printf 'Application deployed: %s\n' "$url" >> "$GITHUB_STEP_SUMMARY"
 printf 'Google OAuth redirect URI: `%s/api/auth/google/callback`\n' "$url" >> "$GITHUB_STEP_SUMMARY"

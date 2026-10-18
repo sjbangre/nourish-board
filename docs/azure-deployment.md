@@ -55,6 +55,7 @@ maintainers must be trusted. CI can read both bootstrap and app state blobs.
 The GitHub deployment identity is the Entra SQL administrator and runs migrations.
 The application's separate managed identity receives database data-reader and
 data-writer roles; application startup verifies schema rather than managing it.
+The SQL user SID uses the identity's client ID; Azure RBAC uses its object ID.
 Google OAuth still requires its own client secret: Azure federation does not
 replace Google's credentials.
 

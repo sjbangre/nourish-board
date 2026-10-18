@@ -21,9 +21,11 @@ try {
         : 'Initial data was already imported; existing cloud edits preserved.',
     );
   }
-  const principal = process.env.SQL_RUNTIME_PRINCIPAL_ID;
+  // SID/TYPE creation uses the application/client ID for service principals,
+  // including managed identities. Object IDs are used for Azure RBAC instead.
+  const principal = process.env.SQL_RUNTIME_CLIENT_ID;
   if (!principal || !/^[0-9a-f-]{36}$/i.test(principal))
-    throw new Error('Missing SQL runtime managed-identity principal ID.');
+    throw new Error('Missing SQL runtime managed-identity client ID.');
   await store.db.transaction(async () => {
     await store.db
       .prepare(

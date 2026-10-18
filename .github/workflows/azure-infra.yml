@@ -12,6 +12,10 @@ on:
       destroy_confirmation:
         type: string
         description: 'For destroy only: type destroy-nourish-board (deletes cloud database)'
+      build_image:
+        type: boolean
+        description: Build a new image (disable only for configuration/database repairs)
+        default: true
 
 permissions: {}
 
@@ -44,6 +48,7 @@ jobs:
       STATE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
       OPERATION: ${{ inputs.operation }}
       DESTROY_CONFIRMATION: ${{ inputs.destroy_confirmation }}
+      BUILD_IMAGE: ${{ inputs.build_image }}
     defaults:
       run:
         shell: bash
