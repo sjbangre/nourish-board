@@ -121,6 +121,8 @@ Bootstrap sets repository variables:
 - `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION`, `TF_PROJECT_NAME`
 - `TF_STATE_STORAGE_ACCOUNT`, `TF_SQL_ADMIN_OBJECT_ID`, `TF_BUDGET_START_DATE`
 - `TF_SQL_OWNER_OBJECT_ID` (your human Entra object ID), `TF_SQL_OWNER_IPV4`
+- `TF_BUDGET_AMOUNT` optionally overrides the monthly budget alert (default 100).
+  Production currently uses 1 to preserve its existing alert threshold.
 
 `TF_ENABLE_REGISTRY` defaults to true because deployment needs the private registry.
 Keep an existing budget's start date fixed. The workflow builds and pushes a

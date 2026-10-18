@@ -22,6 +22,12 @@ resource "azurerm_container_app_environment" "app" {
   resource_group_name = data.azurerm_resource_group.app.name
   location            = data.azurerm_resource_group.app.location
   tags                = local.tags
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+    minimum_count         = 0
+    maximum_count         = 0
+  }
 }
 
 resource "azurerm_container_registry" "app" {
@@ -86,6 +92,7 @@ resource "azurerm_container_app" "app" {
   resource_group_name          = data.azurerm_resource_group.app.name
   container_app_environment_id = azurerm_container_app_environment.app.id
   revision_mode                = "Single"
+  workload_profile_name        = "Consumption"
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.app.id]
