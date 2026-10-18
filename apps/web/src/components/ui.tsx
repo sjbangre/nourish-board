@@ -1,0 +1,6 @@
+import type { ReactNode } from 'react';
+export function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="field"><span>{label}</span>{children}</label>; }
+export function PageHeading({ eyebrow, title, description, actions }: { eyebrow: string; title: string; description: string; actions?: ReactNode }) { return <div className="page-heading"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{actions}</div>; }
+export function Empty({ title, children }: { title: string; children: ReactNode }) { return <div className="empty"><span className="empty-mark">↗</span><h2>{title}</h2><div>{children}</div></div>; }
+export function Notice({ children, warning = false }: { children: ReactNode; warning?: boolean }) { return <div className={`notice ${warning ? 'warning' : ''}`}>{children}</div>; }
+export function Metric({ label, value, unit, note }: { label: string; value: number | string; unit: string; note?: string }) { return <article className="metric"><span>{label}</span><strong>{typeof value === 'number' ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : value}<small>{unit}</small></strong><div className="metric-line"/><p>{note || 'Your daily target'}</p></article>; }

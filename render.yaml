@@ -1,0 +1,28 @@
+# Optional PAID deployment. Review current prices before creating a service.
+services:
+  - type: web
+    name: nourish-board
+    runtime: docker
+    plan: starter
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /data
+      - key: ADMIN_EMAIL
+        value: suhas.bangre@gmail.com
+      - key: LOCAL_DEV_AUTH
+        value: "false"
+      - key: APP_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: USDA_API_KEY
+        sync: false
+    disk:
+      name: nourish-data
+      mountPath: /data
+      sizeGB: 1

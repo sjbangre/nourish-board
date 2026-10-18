@@ -1,0 +1,6 @@
+{
+  "name": "@nourish/web", "version": "0.2.0", "private": true,
+  "scripts": { "dev": "next dev --webpack -p 4318", "build": "next build --webpack", "start": "next start -p 4318", "typecheck": "tsc --noEmit" },
+  "dependencies": { "next": "16.4.2", "react": "19.3.1", "react-dom": "19.3.1", "lucide-react": "^0.468.0" },
+  "devDependencies": { "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0" }
+}

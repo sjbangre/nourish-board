@@ -1,0 +1,17 @@
+{
+  "name": "nourish-board",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "A family nutrition platform built with Next.js and NestJS",
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "node scripts/run.mjs dev",
+    "build": "npm run build -w @nourish/api && npm run build -w @nourish/web",
+    "start": "node scripts/run.mjs start",
+    "test": "npm run build -w @nourish/api && node --test test/nutrition.test.js test/lookup.test.js test/migration.test.js apps/api/dist/test/*.test.js",
+    "typecheck": "npm run typecheck -w @nourish/api && npm run typecheck -w @nourish/web"
+  },
+  "devDependencies": { "typescript": "~5.9.3", "@types/node": "^24.0.0" }
+}
