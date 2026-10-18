@@ -5,3 +5,9 @@ sql_admin_object_id  = "00000000-0000-0000-0000-000000000000"
 budget_start_date    = "2026-10-01T00:00:00Z"
 # Private app images need ACR. Check the subscription's free-offer expiry.
 enable_registry      = true
+# Stage 1: apply defaults and copy custom_domain_dns_records into GoDaddy.
+custom_domain        = "healbelly.in"
+custom_domain_ready  = false
+# Stage 2: ready=true issues/binds certificates. Verify HTTPS and register OAuth.
+# Stage 3: active=true switches the application's canonical URL.
+custom_domain_active = false

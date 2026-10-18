@@ -12,6 +12,12 @@ mock_provider "azurerm" {
   mock_resource "azurerm_container_app_environment" {
     defaults = { id = "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/nourish-board-prod/providers/Microsoft.App/managedEnvironments/test" }
   }
+  mock_resource "azurerm_container_app" {
+    defaults = { id = "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/nourish-board-prod/providers/Microsoft.App/containerApps/nourish-board-prod" }
+  }
+  mock_resource "azurerm_container_app_environment_managed_certificate" {
+    defaults = { id = "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/nourish-board-prod/providers/Microsoft.App/managedEnvironments/test/managedCertificates/test" }
+  }
   mock_resource "azurerm_user_assigned_identity" {
     defaults = { id = "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/nourish-board-prod/providers/Microsoft.ManagedIdentity/userAssignedIdentities/runtime" }
   }
@@ -85,4 +91,52 @@ run "owner_workstation_access" {
     condition     = length(azurerm_mssql_firewall_rule.owner) == 1 && azurerm_mssql_firewall_rule.owner[0].start_ip_address == "203.0.113.10" && azurerm_mssql_firewall_rule.owner[0].end_ip_address == "203.0.113.10"
     error_message = "Owner access must allow only the configured workstation IPv4."
   }
+}
+
+run "domain_setup_preserves_existing_origin" {
+  command = plan
+  assert {
+    condition     = length(azurerm_container_app_custom_domain.app) == 0 && length(azurerm_container_app_environment_managed_certificate.app) == 0 && length(azapi_update_resource.domain_tls) == 0
+    error_message = "DNS preparation must not bind unverified domains or request certificates."
+  }
+  assert {
+    condition     = !var.custom_domain_active
+    error_message = "Keep the Azure login origin until DNS, HTTPS and OAuth are ready."
+  }
+}
+
+run "domain_certificates_before_cutover" {
+  command = plan
+  variables {
+    custom_domain_ready = true
+  }
+  assert {
+    condition     = length(azurerm_container_app_custom_domain.app) == 2 && length(azapi_update_resource.domain_tls) == 1 && length(azapi_resource_action.detach_domain_tls) == 1
+    error_message = "Both hostnames need explicit TLS binding and teardown detachment."
+  }
+  assert {
+    condition     = azurerm_container_app_environment_managed_certificate.app["apex"].domain_control_validation == "HTTP" && azurerm_container_app_environment_managed_certificate.app["www"].domain_control_validation == "CNAME"
+    error_message = "The apex must validate over HTTP and www through its direct CNAME."
+  }
+}
+
+run "domain_canonical_origin" {
+  command = plan
+  variables {
+    custom_domain_ready  = true
+    custom_domain_active = true
+    application_image    = "example.azurecr.io/nourish-board:0123456789abcdef"
+  }
+  assert {
+    condition     = output.application_url == "https://healbelly.in" && length([for e in azurerm_container_app.app.template[0].container[0].env : e if e.name == "APP_URL" && e.value == "https://healbelly.in"]) == 1
+    error_message = "Cutover must configure the same canonical origin in Terraform output and runtime OAuth."
+  }
+}
+
+run "reject_premature_domain_cutover" {
+  command = plan
+  variables {
+    custom_domain_active = true
+  }
+  expect_failures = [var.custom_domain_active]
 }
