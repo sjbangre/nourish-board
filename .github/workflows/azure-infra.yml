@@ -1,0 +1,88 @@
+name: Azure infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        description: Terraform operation
+        options: [plan, apply, destroy]
+        default: plan
+        required: true
+      destroy_confirmation:
+        type: string
+        description: 'For destroy only: type destroy-nourish-board (deletes cloud database)'
+
+permissions: {}
+
+concurrency:
+  group: azure-infrastructure-production
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    if: github.repository == 'sjbangre/nourish-board' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ARM_USE_OIDC: 'true'
+      ARM_USE_AZUREAD: 'true'
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: 'false'
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_resource_group_name: ${{ vars.AZURE_RESOURCE_GROUP }}
+      TF_VAR_project_name: ${{ vars.TF_PROJECT_NAME }}
+      TF_VAR_sql_admin_object_id: ${{ vars.TF_SQL_ADMIN_OBJECT_ID }}
+      TF_VAR_budget_start_date: ${{ vars.TF_BUDGET_START_DATE }}
+      TF_VAR_enable_registry: ${{ vars.TF_ENABLE_REGISTRY || 'false' }}
+      STATE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+      OPERATION: ${{ inputs.operation }}
+      DESTROY_CONFIRMATION: ${{ inputs.destroy_confirmation }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/azure/app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check configuration
+        run: |
+          set -euo pipefail
+          for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_VAR_resource_group_name TF_VAR_project_name TF_VAR_sql_admin_object_id TF_VAR_budget_start_date STATE_ACCOUNT; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing $name; run scripts/azure-bootstrap.ps1 first."; exit 1; }
+          done
+          if [[ "$OPERATION" == destroy && "$DESTROY_CONFIRMATION" != destroy-nourish-board ]]; then
+            echo '::error::Destroy requires destroy-nourish-board. Export cloud data first.'
+            exit 1
+          fi
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.16.6
+          terraform_wrapper: false
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Initialize remote state
+        run: terraform init -lockfile=readonly -backend-config="storage_account_name=$STATE_ACCOUNT" -backend-config="key=$TF_VAR_project_name/app.tfstate"
+      - name: Validate
+        run: terraform validate
+      - name: Plan
+        run: |
+          set -euo pipefail
+          options=()
+          if [[ "$OPERATION" == destroy ]]; then options+=(-destroy); fi
+          terraform plan -lock-timeout=5m "${options[@]}" -out=deployment.tfplan
+      - name: Apply saved plan
+        if: inputs.operation == 'apply' || inputs.operation == 'destroy'
+        run: terraform apply -lock-timeout=5m deployment.tfplan
+      - name: Summarize
+        run: |
+          printf 'Terraform %s completed.\n' "$OPERATION" >> "$GITHUB_STEP_SUMMARY"
+          echo 'The Container App is an infrastructure placeholder; Nourish Board needs its Azure SQL adapter before app deployment.' >> "$GITHUB_STEP_SUMMARY"

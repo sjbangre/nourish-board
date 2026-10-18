@@ -1,0 +1,21 @@
+data/
+.env*
+!.env.example
+node_modules/
+*.log
+coverage/
+dist/
+.next/
+*.tsbuildinfo
+
+# Terraform state, plans and local configuration can contain private data.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+crash.log
+crash.*.log
+infra/azure/bootstrap/backend.tf

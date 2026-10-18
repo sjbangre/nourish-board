@@ -1,0 +1,32 @@
+name: Check Terraform
+
+on:
+  pull_request:
+    paths: ['infra/azure/**', '.github/workflows/*terraform*', '.github/workflows/azure-infra.yml']
+  push:
+    branches: [main]
+    paths: ['infra/azure/**', '.github/workflows/*terraform*', '.github/workflows/azure-infra.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        stack: [bootstrap, app]
+    defaults:
+      run:
+        working-directory: infra/azure/${{ matrix.stack }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.16.6
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -lockfile=readonly
+      - run: terraform validate
+      - run: terraform test
