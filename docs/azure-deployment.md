@@ -201,7 +201,7 @@ GoDaddy remains the DNS host; keep its nameservers and existing mail records.
    records in place for certificate renewal.
 4. Set GitHub repository variable `TF_CUSTOM_DOMAIN_READY=true`, leave
    `TF_CUSTOM_DOMAIN_ACTIVE=false`, and run **apply** again with image building
-   disabled. Terraform registers both hostnames, issues free managed
+   enabled to include the app's www-to-apex redirect. Terraform registers both hostnames, issues free managed
    certificates and binds HTTPS. Certificate issuance may take several minutes.
 5. Verify `https://healbelly.in/api/health` and
    `https://www.healbelly.in/api/health` return `{"status":"ok"}` with valid TLS.
@@ -211,9 +211,9 @@ GoDaddy remains the DNS host; keep its nameservers and existing mail records.
 6. Set `TF_CUSTOM_DOMAIN_ACTIVE=true` and run **apply** again with image building
    disabled. Terraform switches `APP_URL` to `https://healbelly.in`. Verify real
    Google sign-in and family access there; existing sessions require signing in
-   again because cookies belong to the previous hostname. Both hostnames serve
-   the app, with authentication using the apex as the canonical origin; no www
-   redirect is configured.
+   again because cookies belong to the previous hostname. The app redirects www
+   requests to the apex while preserving paths and query parameters, so sign-in
+   cookies and Google's callback use the same hostname.
 
 `TF_CUSTOM_DOMAIN` defaults to `healbelly.in`. The two enable flags default to
 false so DNS setup cannot break the existing login URL. To roll back the
