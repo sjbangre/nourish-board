@@ -67,7 +67,8 @@ resource "azapi_resource" "database" {
   body = {
     sku = { name = "GP_S_Gen5", tier = "GeneralPurpose", family = "Gen5", capacity = 2 }
     properties = {
-      autoPauseDelay                   = 15
+      # Free-limit AutoPause databases only accept Azure's 60-minute default.
+      autoPauseDelay                   = 60
       minCapacity                      = 0.5
       maxSizeBytes                     = 34359738368
       requestedBackupStorageRedundancy = "Local"

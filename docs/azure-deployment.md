@@ -160,6 +160,8 @@ actual charges. Make permanent changes in Terraform so rebuilds reproduce them.
   `freeLimitExhaustionBehavior=AutoPause`. It pauses when free compute is used
   up; free-offer rejection fails provisioning without a paid fallback. AzAPI
   exposes the free-offer properties missing from AzureRM's database resource.
+  Idle auto-pause uses the required 60-minute default; the free offer rejects
+  custom idle delays when monthly exhaustion behavior is AutoPause.
 - The low-cost SQL public endpoint permits Azure service traffic, including
   other Azure tenants. That network allowance grants no database credentials;
   Entra identity permissions still control database access.

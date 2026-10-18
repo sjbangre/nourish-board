@@ -39,6 +39,10 @@ run "sleep_and_free_database" {
     error_message = "Database must request free limits and pause instead of billing overages."
   }
   assert {
+    condition     = azapi_resource.database.body.properties.autoPauseDelay == 60
+    error_message = "Free-limit AutoPause requires Azure's default 60-minute idle delay."
+  }
+  assert {
     condition     = length(azurerm_container_registry.app) == 1 && azurerm_container_registry.app[0].sku == "Standard" && !azurerm_container_registry.app[0].admin_enabled
     error_message = "Use the eligible Standard registry with password authentication disabled."
   }
