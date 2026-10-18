@@ -79,9 +79,10 @@ output "custom_domain_dns_records" {
   description = "Copy these records into GoDaddy DNS; leave nameservers and mail records unchanged."
   value = [
     { type = "A", name = "@", value = azurerm_container_app_environment.app.static_ip_address },
-    { type = "TXT", name = "asuid", value = azurerm_container_app.app.custom_domain_verification_id },
+    # This verification value is intentionally published in public DNS, not a credential.
+    { type = "TXT", name = "asuid", value = nonsensitive(azurerm_container_app.app.custom_domain_verification_id) },
     { type = "CNAME", name = "www", value = trimprefix(local.azure_url, "https://") },
-    { type = "TXT", name = "asuid.www", value = azurerm_container_app.app.custom_domain_verification_id }
+    { type = "TXT", name = "asuid.www", value = nonsensitive(azurerm_container_app.app.custom_domain_verification_id) }
   ]
 }
 
