@@ -60,10 +60,15 @@ run "real_application" {
   command = plan
   variables {
     application_image = "example.azurecr.io/nourish-board:0123456789abcdef"
+    revision_suffix   = "r12345-1"
   }
   assert {
     condition     = azurerm_container_app.app.ingress[0].target_port == 4318
     error_message = "Real deployment must serve the app with Key Vault references."
+  }
+  assert {
+    condition     = azurerm_container_app.app.template[0].revision_suffix == "r12345-1"
+    error_message = "Deployment must create the requested revision after database migrations."
   }
   assert {
     condition     = length([for e in azurerm_container_app.app.template[0].container[0].env : e if e.name == "DATABASE_PROVIDER" && e.value == "azure-sql"]) == 1

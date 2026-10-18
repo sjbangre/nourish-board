@@ -39,6 +39,15 @@ variable "application_image" {
   default     = ""
   description = "Private ACR image including immutable Git commit tag; empty creates the initial bootstrap placeholder."
 }
+variable "revision_suffix" {
+  type        = string
+  default     = null
+  description = "Deployment-specific revision suffix; preserve the current value until migrations finish."
+  validation {
+    condition     = var.revision_suffix == null || can(regex("^[a-z][a-z0-9-]{0,62}$", var.revision_suffix))
+    error_message = "Use a lowercase revision suffix beginning with a letter, up to 63 characters."
+  }
+}
 variable "budget_amount" {
   type        = number
   default     = 100

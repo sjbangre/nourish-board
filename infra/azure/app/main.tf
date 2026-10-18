@@ -105,8 +105,9 @@ resource "azurerm_container_app" "app" {
     }
   }
   template {
-    min_replicas = 0
-    max_replicas = 1
+    revision_suffix = var.revision_suffix
+    min_replicas    = 0
+    max_replicas    = 1
     container {
       name   = "nourish"
       image  = local.deployed ? var.application_image : "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"

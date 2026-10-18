@@ -107,6 +107,10 @@ jobs:
               echo "TF_VAR_application_image=$image" >> "$GITHUB_ENV"
             fi
           fi
+          revision=$(az containerapp list --resource-group "$TF_VAR_resource_group_name" --query "[?name=='$TF_VAR_project_name-prod'].properties.template.revisionSuffix | [0]" --output tsv)
+          if [[ -n "$revision" ]]; then
+            echo "TF_VAR_revision_suffix=$revision" >> "$GITHUB_ENV"
+          fi
       - name: Plan
         run: |
           set -euo pipefail

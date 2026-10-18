@@ -57,6 +57,9 @@ az sql server firewall-rule create --resource-group "$TF_VAR_resource_group_name
   node scripts/migrate-database.mjs
 )
 export TF_VAR_application_image="$image"
+# A failed revision may remain inactive after SQL permissions are repaired.
+# Create its replacement only after the migration has completed successfully.
+export TF_VAR_revision_suffix="r${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 terraform plan -lock-timeout=5m -out=application.tfplan
 terraform apply -lock-timeout=5m application.tfplan
 url=$(terraform output -raw application_url)
