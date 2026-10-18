@@ -177,6 +177,53 @@ After deployment inspect Container App revisions/images, SQL's Microsoft Entra
 administrator and firewall rules, Key Vault access roles, and Cost Management's
 actual charges. Make permanent changes in Terraform so rebuilds reproduce them.
 
+## Connect healbelly.in through IaC
+
+Azure hostnames, certificates, TLS bindings and the canonical `APP_URL` are
+managed by `infra/azure/app/domains.tf` and the Azure deployment workflow.
+Do not configure these in the Azure portal or with CLI mutation commands.
+GoDaddy remains the DNS host; keep its nameservers and existing mail records.
+
+1. Deploy this configuration with the defaults (`TF_CUSTOM_DOMAIN_READY=false`
+   and `TF_CUSTOM_DOMAIN_ACTIVE=false`). Run **Azure deployment > apply**, with
+   **Build application image: false** to reuse the existing application image.
+   The workflow summary prints `custom_domain_dns_records` with the actual IP,
+   app hostname and ownership verification code. Merely running `plan` does not
+   persist new outputs to state.
+2. In GoDaddy, open **My Products > healbelly.in > DNS > Manage DNS**. Replace
+   the parked website's A records at `@` with the single A record from the
+   output. Set `www` to the output's direct Azure hostname (not `healbelly.in`),
+   and add TXT records `asuid` and `asuid.www`. Use the default TTL. Preserve
+   MX, mail verification, nameserver and unrelated TXT records. Remove any
+   conflicting website forwarding or AAAA records for these same hostnames.
+3. Wait until public DNS returns all four intended values. If CAA records exist,
+   ensure they allow `0 issue digicert.com`. Keep the A/CNAME and verification
+   records in place for certificate renewal.
+4. Set GitHub repository variable `TF_CUSTOM_DOMAIN_READY=true`, leave
+   `TF_CUSTOM_DOMAIN_ACTIVE=false`, and run **apply** again with image building
+   enabled to include the app's www-to-apex redirect. Terraform registers both hostnames, issues free managed
+   certificates and binds HTTPS. Certificate issuance may take several minutes.
+5. Verify `https://healbelly.in/api/health` and
+   `https://www.healbelly.in/api/health` return `{"status":"ok"}` with valid TLS.
+   Register `https://healbelly.in/api/auth/google/callback` in the existing Google
+   OAuth web client. Keep the old callback during the transition. In Google Auth
+   Platform branding, add `healbelly.in` as an authorized domain if requested.
+6. Set `TF_CUSTOM_DOMAIN_ACTIVE=true` and run **apply** again with image building
+   disabled. Terraform switches `APP_URL` to `https://healbelly.in`. Verify real
+   Google sign-in and family access there; existing sessions require signing in
+   again because cookies belong to the previous hostname. The app redirects www
+   requests to the apex while preserving paths and query parameters, so sign-in
+   cookies and Google's callback use the same hostname.
+
+`TF_CUSTOM_DOMAIN` defaults to `healbelly.in`. The two enable flags default to
+false so DNS setup cannot break the existing login URL. To roll back the
+canonical origin, set only `TF_CUSTOM_DOMAIN_ACTIVE=false` and apply. To remove
+the domains, deactivate first, then set `TF_CUSTOM_DOMAIN_READY=false` and apply;
+Terraform detaches TLS before deleting certificates and hostnames.
+
+References: [Azure managed certificates and DNS requirements](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates),
+[Terraform managed certificate resource](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_environment_managed_certificate).
+
 ## Cost controls
 
 - Consumption compute uses zero minimum replicas and maximum one. There is no

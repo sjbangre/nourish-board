@@ -2,10 +2,11 @@ data "azurerm_resource_group" "app" { name = var.resource_group_name }
 data "azurerm_client_config" "current" {}
 
 locals {
-  suffix   = substr(sha256("${var.subscription_id}/${var.project_name}"), 0, 12)
-  tags     = { project = var.project_name, managed_by = "terraform" }
-  deployed = var.application_image != ""
-  app_url  = "https://${var.project_name}-prod.${azurerm_container_app_environment.app.default_domain}"
+  suffix    = substr(sha256("${var.subscription_id}/${var.project_name}"), 0, 12)
+  tags      = { project = var.project_name, managed_by = "terraform" }
+  deployed  = var.application_image != ""
+  azure_url = "https://${var.project_name}-prod.${azurerm_container_app_environment.app.default_domain}"
+  app_url   = var.custom_domain_active ? "https://${var.custom_domain}" : local.azure_url
 }
 
 resource "azurerm_user_assigned_identity" "app" {

@@ -1,4 +1,27 @@
 variable "subscription_id" { type = string }
+variable "custom_domain" {
+  type        = string
+  default     = "healbelly.in"
+  description = "Apex domain hosted in GoDaddy. DNS outputs are available before activation."
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", var.custom_domain))
+    error_message = "Supply a lowercase domain without a scheme, path, wildcard or trailing dot."
+  }
+}
+variable "custom_domain_ready" {
+  type        = bool
+  default     = false
+  description = "Enable domain bindings and managed certificates only after GoDaddy DNS resolves."
+}
+variable "custom_domain_active" {
+  type        = bool
+  default     = false
+  description = "Switch APP_URL only after HTTPS works and the Google OAuth callback is registered."
+  validation {
+    condition     = !var.custom_domain_active || var.custom_domain_ready
+    error_message = "Issue and verify the domain certificates before switching APP_URL."
+  }
+}
 variable "resource_group_name" { type = string }
 variable "project_name" {
   type    = string

@@ -46,6 +46,9 @@ jobs:
       TF_VAR_sql_owner_ipv4: ${{ vars.TF_SQL_OWNER_IPV4 }}
       TF_VAR_budget_start_date: ${{ vars.TF_BUDGET_START_DATE }}
       TF_VAR_enable_registry: ${{ vars.TF_ENABLE_REGISTRY || 'true' }}
+      TF_VAR_custom_domain: ${{ vars.TF_CUSTOM_DOMAIN || 'healbelly.in' }}
+      TF_VAR_custom_domain_ready: ${{ vars.TF_CUSTOM_DOMAIN_READY || 'false' }}
+      TF_VAR_custom_domain_active: ${{ vars.TF_CUSTOM_DOMAIN_ACTIVE || 'false' }}
       STATE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
       OPERATION: ${{ inputs.operation }}
       DESTROY_CONFIRMATION: ${{ inputs.destroy_confirmation }}
@@ -138,4 +141,11 @@ jobs:
           SQL_OWNER_OBJECT_ID: ${{ vars.TF_SQL_OWNER_OBJECT_ID }}
         run: bash ../../../scripts/deploy-azure.sh
       - name: Summarize
-        run: printf 'Terraform %s completed.\n' "$OPERATION" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          printf 'Terraform %s completed.\n' "$OPERATION" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$OPERATION" == apply ]]; then
+            printf '\nGoDaddy DNS records:\n```json\n' >> "$GITHUB_STEP_SUMMARY"
+            terraform output -json custom_domain_dns_records >> "$GITHUB_STEP_SUMMARY"
+            printf '\n```\nGoogle OAuth callback: ' >> "$GITHUB_STEP_SUMMARY"
+            terraform output -raw custom_domain_google_callback >> "$GITHUB_STEP_SUMMARY"
+          fi
