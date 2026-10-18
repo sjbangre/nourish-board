@@ -20,6 +20,15 @@ variable "sql_admin_name" {
   type    = string
   default = "nourish-sql-admin"
 }
+variable "sql_owner_ipv4" {
+  type        = string
+  default     = ""
+  description = "Optional owner workstation public IPv4 for direct SQL access. Update when the ISP changes it."
+  validation {
+    condition     = var.sql_owner_ipv4 == "" || (can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}$", var.sql_owner_ipv4)) && can(cidrhost("${var.sql_owner_ipv4}/32", 0)))
+    error_message = "Supply a valid IPv4 address or leave empty to disable the owner firewall rule."
+  }
+}
 variable "enable_registry" {
   type        = bool
   default     = true

@@ -122,5 +122,6 @@ output "github_variables" {
     TF_STATE_STORAGE_ACCOUNT = azurerm_storage_account.state.name
     TF_PROJECT_NAME          = var.project_name
     TF_SQL_ADMIN_OBJECT_ID   = azurerm_user_assigned_identity.github.principal_id
+    TF_SQL_OWNER_OBJECT_ID   = data.azurerm_client_config.current.object_id
   }
 }

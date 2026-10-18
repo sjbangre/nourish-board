@@ -70,3 +70,14 @@ run "real_application" {
     error_message = "Cloud deployment must persist to Azure SQL, never ephemeral SQLite."
   }
 }
+
+run "owner_workstation_access" {
+  command = plan
+  variables {
+    sql_owner_ipv4 = "203.0.113.10"
+  }
+  assert {
+    condition     = length(azurerm_mssql_firewall_rule.owner) == 1 && azurerm_mssql_firewall_rule.owner[0].start_ip_address == "203.0.113.10" && azurerm_mssql_firewall_rule.owner[0].end_ip_address == "203.0.113.10"
+    error_message = "Owner access must allow only the configured workstation IPv4."
+  }
+}

@@ -85,6 +85,29 @@ catalog seeds. An import hash makes later deployments skip the same snapshot
 and preserve cloud edits. A different snapshot after import fails explicitly.
 This is a one-time migration, not ongoing synchronization or a cloud backup.
 
+## Open Azure SQL using your own account
+
+The deployment also creates the contained database user `nourish-owner` for your
+Azure account and grants it `db_owner`. This is separate from the deployment
+identity's SQL server administrator and the application's restricted runtime user.
+`TF_SQL_OWNER_OBJECT_ID` identifies your human Entra user; bootstrap sets it from
+the signed-in Azure account. No SQL password is created.
+
+In Azure Portal, open **SQL databases > nourish > Query editor (preview)** and
+choose **Continue as** your Azure account. Select the same Entra directory as the
+subscription. For SSMS or another SQL client, use:
+
+- Server: `nb-sql-3f302be4dac9.database.windows.net`
+- Database: `nourish` (specify this directly; your contained user is in this database)
+- Authentication: Microsoft Entra interactive/MFA using your Azure account
+
+Terraform's optional `OwnerWorkstation` firewall rule permits only the public IPv4
+stored in GitHub variable `TF_SQL_OWNER_IPV4`. Bootstrap records the workstation's
+current outbound IPv4. If your ISP changes it, update that variable and run the
+manual workflow with `apply`, selecting **Build application image: false** to reuse
+the deployed image. Leave the variable empty to remove direct workstation access.
+The firewall rule does not grant identity permissions by itself.
+
 ## Plan, deploy and destroy
 
 Open **Actions → Azure deployment → Run workflow** on main. Choose `plan`
@@ -97,6 +120,7 @@ Bootstrap sets repository variables:
 - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
 - `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION`, `TF_PROJECT_NAME`
 - `TF_STATE_STORAGE_ACCOUNT`, `TF_SQL_ADMIN_OBJECT_ID`, `TF_BUDGET_START_DATE`
+- `TF_SQL_OWNER_OBJECT_ID` (your human Entra object ID), `TF_SQL_OWNER_IPV4`
 
 `TF_ENABLE_REGISTRY` defaults to true because deployment needs the private registry.
 Keep an existing budget's start date fixed. The workflow builds and pushes a

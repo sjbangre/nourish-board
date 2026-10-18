@@ -43,6 +43,7 @@ jobs:
       TF_VAR_resource_group_name: ${{ vars.AZURE_RESOURCE_GROUP }}
       TF_VAR_project_name: ${{ vars.TF_PROJECT_NAME }}
       TF_VAR_sql_admin_object_id: ${{ vars.TF_SQL_ADMIN_OBJECT_ID }}
+      TF_VAR_sql_owner_ipv4: ${{ vars.TF_SQL_OWNER_IPV4 }}
       TF_VAR_budget_start_date: ${{ vars.TF_BUDGET_START_DATE }}
       TF_VAR_enable_registry: ${{ vars.TF_ENABLE_REGISTRY || 'true' }}
       STATE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
@@ -65,8 +66,10 @@ jobs:
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SQL_OWNER_OBJECT_ID: ${{ vars.TF_SQL_OWNER_OBJECT_ID }}
         run: |
           [[ -n "$GOOGLE_CLIENT_ID" && -n "$GOOGLE_CLIENT_SECRET" ]] || { echo '::error::Configure Google OAuth secrets before deploying.'; exit 1; }
+          [[ -n "$SQL_OWNER_OBJECT_ID" ]] || { echo '::error::Configure TF_SQL_OWNER_OBJECT_ID using the Azure account owner object ID.'; exit 1; }
       - name: Check configuration
         run: |
           set -euo pipefail
@@ -128,6 +131,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           INITIAL_SQLITE_SNAPSHOT: ${{ secrets.INITIAL_SQLITE_SNAPSHOT }}
+          SQL_OWNER_OBJECT_ID: ${{ vars.TF_SQL_OWNER_OBJECT_ID }}
         run: bash ../../../scripts/deploy-azure.sh
       - name: Summarize
         run: printf 'Terraform %s completed.\n' "$OPERATION" >> "$GITHUB_STEP_SUMMARY"

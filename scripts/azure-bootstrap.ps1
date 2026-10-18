@@ -91,6 +91,12 @@ try {
   foreach ($property in $values.PSObject.Properties) {
     Invoke-Checked gh @('variable', 'set', $property.Name, '--repo', $Repository, '--body', [string]$property.Value)
   }
+  $ownerIp = ([string](Invoke-RestMethod -Uri 'https://api.ipify.org')).Trim()
+  $parsedIp = $null
+  if (-not [Net.IPAddress]::TryParse($ownerIp, [ref]$parsedIp) -or $parsedIp.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) {
+    throw 'Could not determine the owner workstation IPv4 address.'
+  }
+  Invoke-Checked gh @('variable', 'set', 'TF_SQL_OWNER_IPV4', '--repo', $Repository, '--body', $ownerIp)
   # Keep an existing budget's start date stable on subsequent bootstrap runs.
   & gh api "repos/$Repository/actions/variables/TF_BUDGET_START_DATE" --silent 2>$null
   if ($LASTEXITCODE -ne 0) {

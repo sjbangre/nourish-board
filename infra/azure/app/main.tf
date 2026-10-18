@@ -237,6 +237,14 @@ resource "azurerm_mssql_firewall_rule" "azure_services" {
   end_ip_address   = "0.0.0.0"
 }
 
+resource "azurerm_mssql_firewall_rule" "owner" {
+  count            = var.sql_owner_ipv4 == "" ? 0 : 1
+  name             = "OwnerWorkstation"
+  server_id        = azurerm_mssql_server.app.id
+  start_ip_address = var.sql_owner_ipv4
+  end_ip_address   = var.sql_owner_ipv4
+}
+
 output "registry_server" { value = var.enable_registry ? azurerm_container_registry.app[0].login_server : null }
 output "vault_name" { value = azurerm_key_vault.app.name }
 output "sql_server_name" { value = azurerm_mssql_server.app.name }
