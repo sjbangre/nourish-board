@@ -37,6 +37,10 @@ variables {
 run "sleep_and_free_database" {
   command = plan
   assert {
+    condition     = azurerm_container_app.app.workload_profile_name == "Consumption" && one(azurerm_container_app_environment.app.workload_profile).workload_profile_type == "Consumption"
+    error_message = "Preserve the explicit Consumption profile Azure assigns to this environment and app."
+  }
+  assert {
     condition     = azurerm_container_app.app.template[0].min_replicas == 0 && azurerm_container_app.app.template[0].max_replicas == 1
     error_message = "The app must scale to zero and cap at one replica."
   }

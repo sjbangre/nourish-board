@@ -45,6 +45,7 @@ jobs:
       TF_VAR_sql_admin_object_id: ${{ vars.TF_SQL_ADMIN_OBJECT_ID }}
       TF_VAR_sql_owner_ipv4: ${{ vars.TF_SQL_OWNER_IPV4 }}
       TF_VAR_budget_start_date: ${{ vars.TF_BUDGET_START_DATE }}
+      TF_VAR_budget_amount: ${{ vars.TF_BUDGET_AMOUNT || '100' }}
       TF_VAR_enable_registry: ${{ vars.TF_ENABLE_REGISTRY || 'true' }}
       TF_VAR_custom_domain: ${{ vars.TF_CUSTOM_DOMAIN || 'healbelly.in' }}
       TF_VAR_custom_domain_ready: ${{ vars.TF_CUSTOM_DOMAIN_READY || 'false' }}
