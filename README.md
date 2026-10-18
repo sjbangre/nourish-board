@@ -1,6 +1,6 @@
 # Nourish Board
 
-A dark-themed, family nutrition and fitness dashboard built with **Next.js 16 + React 19 + TypeScript**, **NestJS 12**, and **SQLite**. Families can have any number of adult profiles, organized into optional two-person couples or individuals.
+A dark-themed, family nutrition and fitness dashboard built with **Next.js 16 + React 19 + TypeScript**, **NestJS 12**, and **SQLite locally / Azure SQL in production**. Families can have any number of adult profiles, organized into optional two-person couples or individuals.
 
 ## Run locally
 
@@ -12,7 +12,7 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-Open **http://localhost:4318**. Next.js proxies `/api/*` to NestJS on loopback port 4319. `start.cmd` starts development mode after installation. Both processes stop with Ctrl+C.
+Open **http://localhost:4318**. Next.js proxies `/api/*` to NestJS on loopback port 4319. Both processes stop with Ctrl+C.
 
 Google sign-in requires credentials (setup below). For an explicitly local development preview only, set `LOCAL_DEV_AUTH=true` in `.env`. A visible banner identifies this mode; it impersonates the configured administrator. Development binds to loopback, and production refuses to start with this flag enabled. Leave it **false** when using Google authentication.
 
@@ -54,7 +54,7 @@ New Google accounts remain **pending** with no family-data access until approved
 
 Invitations do **not** send email automatically. Share the app URL yourself. An approved email must match the user's verified Google email. The admin can cancel individual family approvals or revoke an account entirely. Revocation invalidates its active sessions and invitations. Role and membership checks read current database state on each request.
 
-Authentication uses Google's official `google-auth-library`, authorization-code flow with PKCE, single-use state, and a nonce checked against the verified ID token. Server-side session tokens are random, stored as hashes in SQLite, and delivered in HttpOnly, SameSite cookies (Secure in production). Google access/refresh tokens are not retained. The app requests only `openid email profile`, not Drive/Gmail permissions. Sign out invalidates the server-side session.
+Authentication uses Google's official `google-auth-library`, authorization-code flow with PKCE, single-use state, and a nonce checked against the verified ID token. Server-side session tokens are random, stored as hashes in the database, and delivered in HttpOnly, SameSite cookies (Secure in production). Google access/refresh tokens are not retained. The app requests only `openid email profile`, not Drive/Gmail permissions. Sign out invalidates the server-side session.
 
 Actual Google sign-in must be tested with your real OAuth project; credentials are not included in the repository. See [Google's web-server OAuth guide](https://developers.google.com/identity/protocols/oauth2/web-server) and [OpenID Connect documentation](https://developers.google.com/identity/openid-connect/openid-connect).
 
@@ -105,7 +105,7 @@ apps/api/                  NestJS API, TypeScript
   src/auth/                Google OAuth, sessions, global authentication guard
   src/admin/               Admin-only invitation approvals and revocation
   src/common/              Family/profile authorization
-  src/database/            SQLite repository and startup migration
+  src/database/            Async SQLite/Azure SQL adapters, schema and data migration
   src/families/            Families, couples, membership
   src/profiles/            Profile validation, preferences, weigh-ins
   src/foods/               Catalog, structured online lookup
@@ -114,37 +114,41 @@ packages/contracts/        Shared TypeScript API contracts
 scripts/run.mjs            Cross-platform development/production launcher
 ```
 
-Nest dependency injection, controllers/modules, DTO validation, centralized errors, authentication guards, and authorization services own the backend. React components own rendering/state; there is no HTML-string injection or legacy vanilla server. Families, couples, users, memberships, sessions, and invitations are relational SQLite tables; profiles/foods/plans retain JSON payloads for compatibility with the pilot database. Existing data migrates on startup without replacing edited food values.
+Nest dependency injection, controllers/modules, DTO validation, centralized errors, authentication guards, and authorization services own the backend. React components own rendering/state; there is no HTML-string injection or legacy vanilla server. Families, couples, users, memberships, sessions, and invitations use relational tables; profiles/foods/plans retain JSON payloads for compatibility with the pilot database. Both database adapters share the same API and transaction boundaries. Local SQLite initializes on startup; the deployment workflow migrates Azure SQL before starting the application, whose managed identity has only data read/write permissions.
 
 ## Persistence and hosting
 
-For Azure, see [Terraform infrastructure and GitHub Actions setup](docs/azure-deployment.md).
-The bootstrap script creates secretless GitHub federation and private remote state.
-Actions can plan/apply/destroy the serverless infrastructure. The Container App
-currently uses a placeholder until the SQLite backend is migrated to Azure SQL;
-these files do not yet deploy the actual application.
+[Azure deployment and bootstrap walkthrough](docs/azure-deployment.md) covers the Terraform stacks, secretless GitHub Actions authentication, deployment, data import and teardown. Pushes run checks. Hosting starts only when you manually run the Azure workflow with `apply`.
 
-Data defaults to `data/nourish.sqlite` plus SQLite WAL files. Set `DATA_DIR` to a writable persistent mount. Data and secrets are ignored by Git. For a restorable backup, stop both servers and copy the entire data directory privately; restore it while stopped. Do not copy only the main SQLite file during writes. JSON export has no import UI yet.
+Local development defaults to `DATABASE_PROVIDER=sqlite` and stores `data/nourish.sqlite` plus WAL files. `DATA_DIR` changes the directory. Data and secrets are ignored by Git. For a filesystem backup, stop both servers and copy the entire data directory privately; restore it while stopped. Do not copy only the main SQLite file during writes.
 
-Deploy **one container** running Next.js and NestJS, with **one persistent volume**. Only the Next.js port is public; Nest binds to loopback. SQLite is free and avoids a separate managed database subscription. Compute/storage hosting charges still apply. A free host with an ephemeral filesystem will lose local database changes on restart/redeploy.
+Azure runs one container containing Next.js and NestJS on scale-to-zero Container Apps, with a separate Azure SQL free-offer database. Only Next.js is public. The API uses its managed identity for SQL; Google OAuth credentials come from Key Vault references. SQL data survives container replacements. No persistent container volume is needed.
 
-The multi-stage `Dockerfile` builds both apps. `render.yaml` is an optional **paid** Render blueprint with a 1 GB disk, not an active deployment. Review [current Render prices](https://render.com/pricing) and [persistent disk requirements](https://render.com/docs/disks) before creating it. A small VPS is another option if you maintain HTTPS, updates, and backups.
+To configure encrypted deployment inputs from your private local `.env` and include the current local pilot data:
 
-Production environment:
+```powershell
+npm run build -w @nourish/api
+node scripts/configure-azure-deployment.mjs --include-local-data
+```
 
-| Variable | Value |
+This writes encrypted GitHub secrets; it does not deploy or change Azure SQL. The first deployment imports families, profiles, approvals, foods, plans and logs in one transaction. Sessions and OAuth attempts are excluded, so everyone signs in again. Later deployments recognize the same import and preserve cloud edits. A different snapshot is rejected after import; this is an initial migration mechanism, not ongoing synchronization or cloud backup.
+
+| Variable | Local / Azure behavior |
 | --- | --- |
-| `NODE_ENV` | `production` |
-| `APP_URL` | Canonical public HTTPS origin, without trailing slash |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Server-side OAuth secrets |
+| `DATABASE_PROVIDER` | `sqlite` by default; `azure-sql` in Azure |
+| `DATA_DIR` | SQLite directory; unused for Azure SQL |
+| `SQL_SERVER` / `SQL_DATABASE` | Azure SQL server hostname and database name |
+| `SQL_AUTH` | `managed-identity` in Azure; `azure-cli` for authorized development/migration |
+| `AZURE_CLIENT_ID` | Runtime managed identity identifier; no Azure client secret |
+| `DATABASE_MIGRATIONS` | Workflow sets `on` for migration; application runtime keeps it off |
+| `APP_URL` | Local HTTP origin or canonical hosted HTTPS origin |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Local `.env` or server-side Key Vault references |
 | `ADMIN_EMAIL` | `suhas.bangre@gmail.com` |
-| `LOCAL_DEV_AUTH` | `false` |
-| `PORT` | Host-provided frontend port, default 4318 |
-| `API_PORT` | Internal Nest port, default 4319 |
-| `DATA_DIR` | Persistent mount, e.g. `/data` |
+| `LOCAL_DEV_AUTH` | `false` when using Google; production rejects `true` |
+| `PORT` / `API_PORT` | Public Next.js 4318 / internal NestJS 4319 |
 | `USDA_API_KEY` | Optional free key; limited demo key is the fallback |
 
-Run a single instance, with a writable disk for the image's `node` user and HTTPS supplied by your host/reverse proxy. Register the matching hosted Google callback before deployment. There is no public signup or self-approved invitation endpoint. This version has no email-delivery service, billing, password accounts, or multi-instance database replication.
+The Dockerfile also supports local SQLite hosting when you explicitly mount a writable `/data` directory. Register the hosted Google callback before testing sign-in. There is no email-delivery service, billing or password-account system.
 
 ## Validation
 

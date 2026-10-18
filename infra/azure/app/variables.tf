@@ -10,7 +10,7 @@ variable "project_name" {
 }
 variable "sql_admin_object_id" {
   type        = string
-  description = "Entra object ID of the human administrator or admin group, not the app identity."
+  description = "Entra principal object ID of the GitHub deployment identity, which runs schema migrations."
   validation {
     condition     = can(regex("^[0-9a-fA-F-]{36}$", var.sql_admin_object_id))
     error_message = "Supply the Entra object ID of the SQL administrator."
@@ -22,8 +22,13 @@ variable "sql_admin_name" {
 }
 variable "enable_registry" {
   type        = bool
-  default     = false
+  default     = true
   description = "Optional Standard ACR. Enable only after checking the subscription's 12-month free allowance and expiry."
+}
+variable "application_image" {
+  type        = string
+  default     = ""
+  description = "Private ACR image including immutable Git commit tag; empty creates the initial bootstrap placeholder."
 }
 variable "budget_amount" {
   type        = number
@@ -37,4 +42,9 @@ variable "budget_start_date" {
 variable "budget_email" {
   type    = string
   default = "suhas.bangre@gmail.com"
+}
+variable "admin_email" {
+  type        = string
+  default     = "suhas.bangre@gmail.com"
+  description = "Application administrator, independent of the billing alert recipient."
 }

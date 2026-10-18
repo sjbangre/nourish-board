@@ -1,4 +1,4 @@
-name: Azure infrastructure
+name: Azure deployment
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
       TF_VAR_project_name: ${{ vars.TF_PROJECT_NAME }}
       TF_VAR_sql_admin_object_id: ${{ vars.TF_SQL_ADMIN_OBJECT_ID }}
       TF_VAR_budget_start_date: ${{ vars.TF_BUDGET_START_DATE }}
-      TF_VAR_enable_registry: ${{ vars.TF_ENABLE_REGISTRY || 'false' }}
+      TF_VAR_enable_registry: ${{ vars.TF_ENABLE_REGISTRY || 'true' }}
       STATE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
       OPERATION: ${{ inputs.operation }}
       DESTROY_CONFIRMATION: ${{ inputs.destroy_confirmation }}
@@ -50,6 +50,18 @@ jobs:
         working-directory: infra/azure/app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        if: inputs.operation == 'apply'
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Check application secrets
+        if: inputs.operation == 'apply'
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          [[ -n "$GOOGLE_CLIENT_ID" && -n "$GOOGLE_CLIENT_SECRET" ]] || { echo '::error::Configure Google OAuth secrets before deploying.'; exit 1; }
       - name: Check configuration
         run: |
           set -euo pipefail
@@ -58,6 +70,10 @@ jobs:
           done
           if [[ "$OPERATION" == destroy && "$DESTROY_CONFIRMATION" != destroy-nourish-board ]]; then
             echo '::error::Destroy requires destroy-nourish-board. Export cloud data first.'
+            exit 1
+          fi
+          if [[ "$OPERATION" == apply && "$TF_VAR_enable_registry" != true ]]; then
+            echo '::error::Application deployment requires the private registry. Review its free allowance before applying.'
             exit 1
           fi
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
@@ -73,6 +89,16 @@ jobs:
         run: terraform init -lockfile=readonly -backend-config="storage_account_name=$STATE_ACCOUNT" -backend-config="key=$TF_VAR_project_name/app.tfstate"
       - name: Validate
         run: terraform validate
+      - name: Preserve deployed image
+        if: inputs.operation != 'destroy'
+        run: |
+          set -euo pipefail
+          image=$(az containerapp list --resource-group "$TF_VAR_resource_group_name" --query "[?name=='$TF_VAR_project_name-prod'].properties.template.containers[0].image | [0]" --output tsv)
+          if [[ -n "$image" ]]; then
+            if [[ "$image" != mcr.microsoft.com/azuredocs/containerapps-helloworld:latest ]]; then
+              echo "TF_VAR_application_image=$image" >> "$GITHUB_ENV"
+            fi
+          fi
       - name: Plan
         run: |
           set -euo pipefail
@@ -82,7 +108,21 @@ jobs:
       - name: Apply saved plan
         if: inputs.operation == 'apply' || inputs.operation == 'destroy'
         run: terraform apply -lock-timeout=5m deployment.tfplan
+      # Provisioning can outlive the initial GitHub assertion. Refresh it before
+      # the deployment script obtains SQL/registry/Key Vault access tokens.
+      - name: Refresh federated login for application deployment
+        if: inputs.operation == 'apply'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy application and migrate database
+        if: inputs.operation == 'apply'
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          INITIAL_SQLITE_SNAPSHOT: ${{ secrets.INITIAL_SQLITE_SNAPSHOT }}
+        run: bash ../../../scripts/deploy-azure.sh
       - name: Summarize
-        run: |
-          printf 'Terraform %s completed.\n' "$OPERATION" >> "$GITHUB_STEP_SUMMARY"
-          echo 'The Container App is an infrastructure placeholder; Nourish Board needs its Azure SQL adapter before app deployment.' >> "$GITHUB_STEP_SUMMARY"
+        run: printf 'Terraform %s completed.\n' "$OPERATION" >> "$GITHUB_STEP_SUMMARY"

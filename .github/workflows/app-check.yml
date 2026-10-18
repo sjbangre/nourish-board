@@ -1,0 +1,63 @@
+name: Check application
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Verify production container builds
+        run: docker build --tag nourish-ci .
+
+  sql-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: IntegrationOnly_Passw0rd!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'IntegrationOnly_Passw0rd!' -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'IntegrationOnly_Passw0rd!' -Q 'SELECT 1'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      NODE_ENV: test
+      SQL_INTEGRATION: 'true'
+      SQL_SERVER: localhost
+      SQL_AUTH: password
+      SQL_USER: sa
+      SQL_PASSWORD: IntegrationOnly_Passw0rd!
+      SQL_TEST_TRUST_CERTIFICATE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @nourish/api
+      - name: Verify real SQL Server transactions, parameter binding and initial import
+        run: node --test apps/api/dist/test/database.test.js

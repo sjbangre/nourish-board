@@ -3,4 +3,5 @@ subscription_id      = "00000000-0000-0000-0000-000000000000"
 resource_group_name  = "nourish-board-prod"
 sql_admin_object_id  = "00000000-0000-0000-0000-000000000000"
 budget_start_date    = "2026-10-01T00:00:00Z"
-enable_registry      = false
+# Private app images need ACR. Check the subscription's free-offer expiry.
+enable_registry      = true

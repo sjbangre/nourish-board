@@ -1,0 +1,2 @@
+# Deployment scripts must remain executable by Linux runners after checkout.
+*.sh text eol=lf

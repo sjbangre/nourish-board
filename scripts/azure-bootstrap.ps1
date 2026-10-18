@@ -47,7 +47,6 @@ $oidcPrefix = [string]$oidcSettings.sub_claim_prefix
 & az account show --output none 2>$null
 if ($LASTEXITCODE -ne 0) { Invoke-Checked az @('login', '--output', 'none') }
 Invoke-Checked az @('account', 'set', '--subscription', $SubscriptionId.ToString())
-$sqlAdmin = (Invoke-Checked az @('ad', 'signed-in-user', 'show', '--query', 'id', '--output', 'tsv')).Trim()
 
 # Reconnect a fresh checkout to existing remote bootstrap state automatically.
 $backendFile = Join-Path $bootstrap 'backend.tf'
@@ -66,7 +65,7 @@ if (-not (Test-Path -LiteralPath $backendFile)) {
 }
 
 # Registration is subscription-level, so do it as the human owner, not CI.
-foreach ($namespace in @('Microsoft.ManagedIdentity', 'Microsoft.Storage', 'Microsoft.App', 'Microsoft.OperationalInsights', 'Microsoft.Sql', 'Microsoft.ContainerRegistry', 'Microsoft.Consumption')) {
+foreach ($namespace in @('Microsoft.ManagedIdentity', 'Microsoft.Storage', 'Microsoft.App', 'Microsoft.OperationalInsights', 'Microsoft.Sql', 'Microsoft.ContainerRegistry', 'Microsoft.Consumption', 'Microsoft.KeyVault')) {
   Invoke-Checked az @('provider', 'register', '--namespace', $namespace, '--wait', '--output', 'none')
 }
 
@@ -92,7 +91,6 @@ try {
   foreach ($property in $values.PSObject.Properties) {
     Invoke-Checked gh @('variable', 'set', $property.Name, '--repo', $Repository, '--body', [string]$property.Value)
   }
-  Invoke-Checked gh @('variable', 'set', 'TF_SQL_ADMIN_OBJECT_ID', '--repo', $Repository, '--body', $sqlAdmin)
   # Keep an existing budget's start date stable on subsequent bootstrap runs.
   & gh api "repos/$Repository/actions/variables/TF_BUDGET_START_DATE" --silent 2>$null
   if ($LASTEXITCODE -ne 0) {
@@ -100,7 +98,7 @@ try {
     Invoke-Checked gh @('variable', 'set', 'TF_BUDGET_START_DATE', '--repo', $Repository, '--body', $budgetStart)
   }
   Write-Host 'Bootstrap complete. Azure federation and GitHub variables are configured.'
-  Write-Host 'The application infrastructure has not been applied. Use the Azure infrastructure workflow next.'
+  Write-Host 'The application infrastructure has not been applied. Use the Azure deployment workflow next.'
 } finally {
   Pop-Location
 }

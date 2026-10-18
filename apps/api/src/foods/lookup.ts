@@ -1,4 +1,4 @@
-import type { Nutrient, LookupFood, LookupResult } from '@nourish/contracts';
+import type { LookupFood, LookupResult } from '@nourish/contracts';
 import { nutrients } from '../nutrition/engine';
 
 const aliases: Record<string, string> = { ragi: 'finger millet', 'ragi flour': 'finger millet flour', jowar: 'sorghum grain', bajra: 'pearl millet', 'green gram': 'mung beans mature seeds raw', moong: 'mung beans mature seeds raw', 'black chana': 'chickpeas raw', 'toor dal': 'pigeon peas raw', 'urad dal': 'black gram raw', avarekalu: 'hyacinth beans raw', palak: 'spinach raw', mosambi: 'sweet lime', chikoo: 'sapodilla raw', sapota: 'sapodilla raw', 'lady finger': 'okra raw', vendakkai: 'okra raw', brinjal: 'eggplant raw', 'ground nuts': 'peanuts raw' };

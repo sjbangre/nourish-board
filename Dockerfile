@@ -24,5 +24,4 @@ RUN mkdir /data && chown node:node /data
 USER node
 ENV NODE_ENV=production PORT=4318 API_PORT=4319 DATA_DIR=/data NEXT_TELEMETRY_DISABLED=1
 EXPOSE 4318
-VOLUME ["/data"]
 CMD ["node", "scripts/run.mjs", "start"]

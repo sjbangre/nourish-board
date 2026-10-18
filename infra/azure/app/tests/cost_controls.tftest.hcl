@@ -7,7 +7,7 @@ mock_provider "azurerm" {
     }
   }
   mock_data "azurerm_client_config" {
-    defaults = { tenant_id = "22222222-2222-2222-2222-222222222222" }
+    defaults = { tenant_id = "22222222-2222-2222-2222-222222222222", object_id = "11111111-1111-1111-1111-111111111111" }
   }
   mock_resource "azurerm_container_app_environment" {
     defaults = { id = "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/nourish-board-prod/providers/Microsoft.App/managedEnvironments/test" }
@@ -31,7 +31,7 @@ variables {
 run "sleep_and_free_database" {
   command = plan
   assert {
-    condition     = azurerm_container_app.shell.template[0].min_replicas == 0 && azurerm_container_app.shell.template[0].max_replicas == 1
+    condition     = azurerm_container_app.app.template[0].min_replicas == 0 && azurerm_container_app.app.template[0].max_replicas == 1
     error_message = "The app must scale to zero and cap at one replica."
   }
   assert {
@@ -39,11 +39,30 @@ run "sleep_and_free_database" {
     error_message = "Database must request free limits and pause instead of billing overages."
   }
   assert {
-    condition     = length(azurerm_container_registry.app) == 0
-    error_message = "Do not create a recurring-cost container registry by default."
+    condition     = length(azurerm_container_registry.app) == 1 && azurerm_container_registry.app[0].sku == "Standard" && !azurerm_container_registry.app[0].admin_enabled
+    error_message = "Use the eligible Standard registry with password authentication disabled."
   }
   assert {
     condition     = azurerm_mssql_server.app.azuread_administrator[0].azuread_authentication_only
     error_message = "SQL must use Entra authentication without passwords."
+  }
+  assert {
+    condition     = azurerm_key_vault.app.rbac_authorization_enabled && azurerm_role_assignment.secret_read.role_definition_name == "Key Vault Secrets User"
+    error_message = "Runtime must read OAuth secrets through its managed identity."
+  }
+}
+
+run "real_application" {
+  command = plan
+  variables {
+    application_image = "example.azurecr.io/nourish-board:0123456789abcdef"
+  }
+  assert {
+    condition     = azurerm_container_app.app.ingress[0].target_port == 4318
+    error_message = "Real deployment must serve the app with Key Vault references."
+  }
+  assert {
+    condition     = length([for e in azurerm_container_app.app.template[0].container[0].env : e if e.name == "DATABASE_PROVIDER" && e.value == "azure-sql"]) == 1
+    error_message = "Cloud deployment must persist to Azure SQL, never ephemeral SQLite."
   }
 }
