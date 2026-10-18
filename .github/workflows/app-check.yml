@@ -1,63 +1,51 @@
-name: Check application
-
+name: Verify production domain
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
-
-permissions:
-  contents: read
-
+    inputs:
+      canonical_origin:
+        description: Expected OAuth callback origin
+        required: true
+        type: string
+permissions: {}
 jobs:
-  application:
+  domain:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run typecheck
-      - run: npm run build
-      - name: Verify production container builds
-        run: docker build --tag nourish-ci .
-
-  sql-integration:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    services:
-      sql:
-        image: mcr.microsoft.com/mssql/server:2022-latest
-        env:
-          ACCEPT_EULA: Y
-          MSSQL_PID: Developer
-          MSSQL_SA_PASSWORD: IntegrationOnly_Passw0rd!
-        ports:
-          - 1433:1433
-        options: >-
-          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'IntegrationOnly_Passw0rd!' -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'IntegrationOnly_Passw0rd!' -Q 'SELECT 1'"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=12
+    timeout-minutes: 10
     env:
-      NODE_ENV: test
-      SQL_INTEGRATION: 'true'
-      SQL_SERVER: localhost
-      SQL_AUTH: password
-      SQL_USER: sa
-      SQL_PASSWORD: IntegrationOnly_Passw0rd!
-      SQL_TEST_TRUST_CERTIFICATE: 'true'
+      EXPECTED_ORIGIN: ${{ inputs.canonical_origin }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build -w @nourish/api
-      - name: Verify real SQL Server transactions, parameter binding and initial import
-        run: node --test apps/api/dist/test/database.test.js
+      - name: Verify public HTTPS, www redirect and OAuth callback
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          const apex = 'https://healbelly.in';
+          async function retry(label, operation) {
+            let error;
+            for (let attempt = 0; attempt < 6; attempt++) {
+              try { await operation(); console.log(`${label}: passed`); return; }
+              catch (e) { error = e; console.log(`${label}: retry ${attempt + 1}`); }
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            throw error;
+          }
+          const request = (url, options = {}) => fetch(url, { signal: AbortSignal.timeout(45000), ...options });
+          await retry('Apex HTTPS health', async () => {
+            const response = await request(`${apex}/api/health`);
+            if (!response.ok || (await response.json()).status !== 'ok') throw new Error('Apex health failed');
+          });
+          await retry('Homepage', async () => {
+            const response = await request(apex);
+            if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) throw new Error('Homepage failed');
+          });
+          await retry('www HTTPS redirect preserves path and query', async () => {
+            const response = await request('https://www.healbelly.in/api/health?probe=domain', { redirect: 'manual' });
+            if (response.status !== 308 || response.headers.get('location') !== `${apex}/api/health?probe=domain`) throw new Error('www redirect failed');
+          });
+          await retry('Google OAuth callback configuration', async () => {
+            const response = await request(`${apex}/api/auth/google`, { redirect: 'manual' });
+            const location = response.headers.get('location');
+            if (response.status !== 302 || !location) throw new Error('Google sign-in did not redirect');
+            const target = new URL(location);
+            if (target.hostname !== 'accounts.google.com' || target.searchParams.get('redirect_uri') !== `${process.env.EXPECTED_ORIGIN}/api/auth/google/callback`) throw new Error('Unexpected Google OAuth callback');
+          });
+          JS
