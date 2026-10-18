@@ -29,7 +29,7 @@ variables { subscription_id = "33333333-3333-3333-3333-333333333333" }
 run "branch_trust_and_scoped_permissions" {
   command = apply
   assert {
-    condition     = azurerm_federated_identity_credential.github.subject == "repo:sjbangre/nourish-board:ref:refs/heads/main"
+    condition     = azurerm_federated_identity_credential.github.subject == "repo:sjbangre@32705567/nourish-board@1424214833:ref:refs/heads/main"
     error_message = "Only main may obtain Azure deployment access."
   }
   assert {

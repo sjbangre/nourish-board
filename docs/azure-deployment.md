@@ -23,7 +23,8 @@ No Azure client secret, publish profile, certificate, storage key or
 `AZURE_CREDENTIALS` is used. Azure client/tenant/subscription IDs remain necessary
 identifiers; bootstrap writes these as repository variables, with no rotation.
 
-The trust subject is `repo:sjbangre/nourish-board:ref:refs/heads/main`. This
+The trust subject is `repo:sjbangre@32705567/nourish-board@1424214833:ref:refs/heads/main`. Bootstrap fetches its exact prefix from GitHub's OIDC API, including
+immutable IDs used by new repositories since July 2026. This
 replaces the earlier environment-scoped template and avoids requiring environment
 protections on the private repository's GitHub plan. Pull request branches
 cannot obtain this Azure identity. Protect main and restrict workflow editing.
@@ -119,8 +120,8 @@ and `APP_URL` when needed.
   state storage is outside this app budget and costs storage/transactions outside
   allowances. No unconditional zero-cost guarantee is possible.
 - Service allowances may be shared across apps/subscription. Actual region,
-  quota and free-offer eligibility require a real Azure plan/apply. These files
-  have not been deployed against Azure yet.
+  quota and free-offer eligibility require a real Azure plan/apply. The bootstrap
+  has been applied; the application stack has not been applied yet.
 
 ## Complete teardown, including trust and state
 

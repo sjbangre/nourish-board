@@ -17,6 +17,15 @@ variable "github_repository" {
   type    = string
   default = "sjbangre/nourish-board"
 }
+variable "github_subject_prefix" {
+  type        = string
+  default     = "repo:sjbangre@32705567/nourish-board@1424214833"
+  description = "Exact sub_claim_prefix from GitHub's repository OIDC customization API. Bootstrap fetches this automatically."
+  validation {
+    condition     = can(regex("^repo:[A-Za-z0-9_.-]+(@[0-9]+)?/[A-Za-z0-9_.-]+(@[0-9]+)?$", var.github_subject_prefix)) && replace(var.github_subject_prefix, "/@[0-9]+/", "") == "repo:${var.github_repository}"
+    error_message = "The exact OIDC repository prefix must match github_repository; wildcards and extra subject contexts are not allowed."
+  }
+}
 
 data "azurerm_client_config" "current" {}
 
@@ -79,7 +88,7 @@ resource "azurerm_federated_identity_credential" "github" {
   name                      = "github-main"
   user_assigned_identity_id = azurerm_user_assigned_identity.github.id
   issuer                    = "https://token.actions.githubusercontent.com"
-  subject                   = "repo:${var.github_repository}:ref:refs/heads/main"
+  subject                   = "${var.github_subject_prefix}:ref:refs/heads/main"
   audience                  = ["api://AzureADTokenExchange"]
 }
 

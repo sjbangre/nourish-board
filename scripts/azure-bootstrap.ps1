@@ -38,6 +38,11 @@ foreach ($tool in @('az', 'gh', $TerraformPath)) {
 $root = Split-Path $PSScriptRoot -Parent
 $bootstrap = Join-Path $root 'infra/azure/bootstrap'
 Invoke-Checked gh @('auth', 'status')
+$oidcSettings = (Invoke-Checked gh @('api', "repos/$Repository/actions/oidc/customization/sub")) | ConvertFrom-Json
+if (-not $oidcSettings.use_default -or -not $oidcSettings.sub_claim_prefix) {
+  throw 'This bootstrap requires GitHub default branch subjects. Review custom OIDC subject settings before proceeding.'
+}
+$oidcPrefix = [string]$oidcSettings.sub_claim_prefix
 # Azure uses your interactive sign-in only for this first trust setup.
 & az account show --output none 2>$null
 if ($LASTEXITCODE -ne 0) { Invoke-Checked az @('login', '--output', 'none') }
@@ -70,7 +75,8 @@ try {
   Invoke-Checked $TerraformPath @('init', '-input=false')
   $tfArguments = @(
     "-var=subscription_id=$SubscriptionId", "-var=location=$Location",
-    "-var=project_name=$ProjectName", "-var=github_repository=$Repository"
+    "-var=project_name=$ProjectName", "-var=github_repository=$Repository",
+    "-var=github_subject_prefix=$oidcPrefix"
   )
   # No -auto-approve: Terraform displays the concrete changes before applying.
   Invoke-Checked $TerraformPath (@('apply') + $tfArguments)
