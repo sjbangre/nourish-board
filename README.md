@@ -27,7 +27,7 @@ npm start
 
 ## Google OAuth and administrator approval
 
-**Administrator: `suhas.bangre@gmail.com`.** Only the verified Google account matching `ADMIN_EMAIL` receives the admin role. Email addresses typed into a form do not authenticate a user or confer admin access.
+**Administrator: ** Only the verified Google account matching `ADMIN_EMAIL` receives the admin role. Email addresses typed into a form do not authenticate a user or confer admin access.
 
 1. Create/select a project in [Google Cloud Console](https://console.cloud.google.com/).
 2. Configure Google Auth Platform branding/audience. While the project is in Testing, add your family members as test users there as well. Google test-user access and this app's invitation approvals are separate checks.
